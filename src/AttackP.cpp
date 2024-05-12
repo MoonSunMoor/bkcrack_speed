@@ -105,30 +105,17 @@ void AttackP::testXlist(std::vector<KeySet> keypacks)
 
     // End of parallel action
 
-
-    /*
-    // get the keys associated with the initial state
-    keysBackward.updateBackward(data.ciphertext, indexBackward, 0);
-
-    {
-        const auto lock = std::scoped_lock{solutionsMutex};
-        solutions.push_back(keysBackward);
-    }
-
-    progress.log([&keysBackward](std::ostream& os) { os << "Keys: " << keysBackward << std::endl; });
-    */
-
     if (keypacks.empty())
         return;
 
-    // GetKey
+    // get the keys associated with the initial state
     std::vector<Keys> solutionKeys;
     std::for_each(keypacks.begin(), keypacks.end(),
-                  [&](const auto& e)
-                  {
-                      auto keysBackward = Keys{e.x[0], e.y[3], e.z[3]};
-                      keysBackward.updateBackward(data.ciphertext, indexBackward + index + 3, 0);
-                  });
+        [&](const auto& e)
+        {
+            auto keysBackward = Keys{e.x[0], e.y[3], e.z[3]};
+            keysBackward.updateBackward(data.ciphertext, indexBackward + index + 3, 0);
+        });
 
     {
         const auto lock = std::scoped_lock{solutionsMutex};
