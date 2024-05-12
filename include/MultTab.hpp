@@ -10,13 +10,13 @@ public:
     /// \return mult * x using a lookup table
     static auto getMult(std::uint8_t x) -> std::uint32_t
     {
-        return instance.multtab[x];
+        return x * mult;
     }
 
     /// \return mult^-1 * x using a lookup table
     static auto getMultinv(std::uint8_t x) -> std::uint32_t
     {
-        return instance.multinvtab[x];
+        return x * multInv;
     }
 
     /// \return a vector of bytes x such that
@@ -45,8 +45,6 @@ private:
     MultTab();
 
     // lookup tables
-    std::array<std::uint32_t, 256>             multtab;
-    std::array<std::uint32_t, 256>             multinvtab;
     std::array<std::vector<std::uint8_t>, 256> msbprodfiber2;
     std::array<std::vector<std::uint8_t>, 256> msbprodfiber3;
 

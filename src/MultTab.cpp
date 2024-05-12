@@ -8,9 +8,6 @@ MultTab::MultTab()
     auto prodinv = std::uint32_t{}; // x * mult^-1
     for (auto x = 0; x < 256; x++, prod += mult, prodinv += multInv)
     {
-        multtab[x]    = prod;
-        multinvtab[x] = prodinv;
-
         msbprodfiber2[msb(prodinv)].push_back(x);
         msbprodfiber2[(msb(prodinv) + 1) % 256].push_back(x);
 
