@@ -34,7 +34,7 @@ public:
     /// Total number of known plaintext bytes required by the attack
     static constexpr std::size_t attackSize = 12;
 
-private:
+protected:
     // iterate recursively over Z-lists
     void exploreZlists(int i);
 
