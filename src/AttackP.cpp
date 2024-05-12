@@ -50,7 +50,8 @@ void AttackP::exploreYlists(int i)
         memcpy(cur_list.z, zlist.data(), 8);
         keypacks.push_back(cur_list);
 
-        if (keypacks.size() > 64)
+        // Only for testing. Brokes --continue-attack and more
+        if (keypacks.size() > 1024)
             testXlist();
     }
 }
