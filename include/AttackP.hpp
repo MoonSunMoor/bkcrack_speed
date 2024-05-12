@@ -9,12 +9,12 @@
 #include "types.hpp"
 
 
-typedef std::uint32_t KeyPack[8];
-struct KeySet
+typedef std::uint32_t KeyList[8];
+struct KeyPack
 {
-    KeyPack z;  // the first two bits are not used -> first bit a vaild flag
-    KeyPack y;  // the first two elements are not used
-    KeyPack x;  // the first four elements are not used -> [0] is for x in compute
+    KeyList z;  // the first two bits are not used -> first bit a vaild flag
+    KeyList y;  // the first two elements are not used
+    KeyList x;  // the first four elements are not used -> [0] is for x in compute
 };
 
 
@@ -24,6 +24,12 @@ struct KeySet
 class AttackP : public Attack
 {
 public:
-    void testXlist(std::vector<KeySet> keypacks);
+    void exploreYlists(int i);
+    void testXlist();
+
+    AttackP(const Data& data, std::size_t index, std::vector<Keys>& solutions, std::mutex& solutionsMutex,
+            bool exhaustive, Progress& progress);
+protected:
+    std::vector<KeyPack> keypacks;
 };
 #endif // BKCRACK_ATTACKP_HPP

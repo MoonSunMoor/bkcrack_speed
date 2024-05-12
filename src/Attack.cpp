@@ -1,4 +1,5 @@
 #include "Attack.hpp"
+#include "AttackP.hpp"
 
 #include "Crc32Tab.hpp"
 #include "KeystreamTab.hpp"
@@ -185,7 +186,7 @@ auto attack(const Data& data, const std::vector<std::uint32_t>& zi_2_32_vector, 
 
     auto solutions      = std::vector<Keys>{};
     auto solutionsMutex = std::mutex{};
-    auto worker         = Attack{data, index, solutions, solutionsMutex, exhaustive, progress};
+    auto worker         = AttackP{data, index, solutions, solutionsMutex, exhaustive, progress};
 
     progress.done  = start;
     progress.total = size;

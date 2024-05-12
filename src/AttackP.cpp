@@ -6,10 +6,58 @@
 #include "log.hpp"
 
 #include <algorithm>
+#include <string>
+
+AttackP::AttackP(const Data& data, std::size_t index, std::vector<Keys>& solutions, std::mutex& solutionsMutex,
+               bool exhaustive, Progress& progress)
+: Attack(data, index, solutions, solutionsMutex, exhaustive, progress)
+{
+}
+
+// TODO: Parallelize
+void AttackP::exploreYlists(int i)
+{
+    if (i != 3) // the Y-list is not complete so generate Y{i-1} values
+    {
+        const auto fy  = (ylist[i] - 1) * MultTab::multInv;
+        const auto ffy = (fy - 1) * MultTab::multInv;
+
+        // get possible LSB(Xi)
+        for (const auto xi_0_8 : MultTab::getMsbProdFiber2(msb(ffy - (ylist[i - 2] & mask<24, 32>))))
+        {
+            // compute corresponding Y{i-1}
+            const auto yim1 = fy - xi_0_8;
+
+            // filter values with Y{i-2}[24,32)
+            if (ffy - MultTab::getMultinv(xi_0_8) - (ylist[i - 2] & mask<24, 32>) <= maxdiff<24> &&
+                msb(yim1) == msb(ylist[i - 1]))
+            {
+                // add Y{i-1} to the Y-list
+                ylist[i - 1] = yim1;
+
+                // set Xi value
+                xlist[i] = xi_0_8;
+
+                exploreYlists(i - 1);
+            }
+        }
+    }
+    else // the Y-list is complete so add key list for pending if x is vaild
+    {
+        KeyPack cur_list;
+        memcpy(cur_list.x, xlist.data(), 8);
+        memcpy(cur_list.y, ylist.data(), 8);
+        memcpy(cur_list.z, zlist.data(), 8);
+        keypacks.push_back(cur_list);
+
+        if (keypacks.size() > 64)
+            testXlist();
+    }
+}
 
 
 // Parallelized with CUDA in mind
-void AttackP::testXlist(std::vector<KeySet> keypacks)
+void AttackP::testXlist()
 {
     std::for_each(
         keypacks.begin(), keypacks.end(),
@@ -116,6 +164,8 @@ void AttackP::testXlist(std::vector<KeySet> keypacks)
             auto keysBackward = Keys{e.x[0], e.y[3], e.z[3]};
             keysBackward.updateBackward(data.ciphertext, indexBackward + index + 3, 0);
         });
+
+    keypacks.clear();
 
     {
         const auto lock = std::scoped_lock{solutionsMutex};
