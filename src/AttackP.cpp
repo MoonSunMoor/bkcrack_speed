@@ -30,10 +30,11 @@ void AttackP::carryout(std::uint32_t z7_2_32)
     exploreZlists(7);
 }
 
-/*
+
 void AttackP::expandZlist(int i) {
-    int                  idx = 0;
-    std::vector<KeyPack> buffer(keypacks.size() * 5); // TODO
+    constexpr int        local_dim  = 5;
+    int                  global_idx = 0;
+    std::vector<KeyPack> buffer(keypacks.size() * local_dim); // TODO
 
     std::for_each(
         keypacks.begin(), keypacks.end(), 
@@ -54,14 +55,37 @@ void AttackP::expandZlist(int i) {
                 key.z[i] &= mask<2, 32>; // discard 2 least significant bits
                 key.z[i] |= (Crc32Tab::crc32inv(key.z[i], 0) ^ key.z[i - 1]) >> 8;
 
-                buffer[idx * 5 + local_idx] = key;
-                idx++;
+                buffer[glb_idx * local_dim + local_idx] = key;
                 local_idx++;
             }
+            global_idx++;
         });
-    keypacks = buffer;
+    keypacks = std::move(buffer);
 }
-*/
+
+void AttackP::compactZlist() {
+    if (keypacks.empty())
+        return;
+    keypacks.erase(std::remove_if(
+        keypacks.begin(), keypacks.end(),
+        [](const auto e) { 
+            return !(e.z[0] & 1);
+        }),keypacks.end());
+}
+
+void AttackP::propagateYlist() {
+    std::for_each(
+        keypacks.begin(), keypacks.end(), 
+        [&](auto &e) 
+        { 
+            for (int i = 1; i < 7; i++)
+            {
+                ylist[i + 1] = Crc32Tab::getYi_24_32(zlist[i + 1], zlist[i]);
+            }
+        }
+    );
+}
+
 void AttackP::exploreZlists(int i)
 {
     if (i != 0) // the Z-list is not complete so generate Z{i-1}[2,32) values
@@ -100,6 +124,19 @@ void AttackP::exploreZlists(int i)
                     exploreYlists(7);
                 }
     }
+}
+
+void AttackP::exploreZlists(int i)
+{
+    for (int k = 7; k > 0; k--)
+    {
+        expandZlist(k);
+        compactZlist();
+    }
+    // the Z-list is complete so iterate over possible Y values
+    propagateYlist();
+
+    exploreYlists();
 }
 
 

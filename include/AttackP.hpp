@@ -28,13 +28,16 @@ public:
     void carryout(std::uint32_t z7_2_32);
 
     void expandZlist(int i);
-    void exploreZlists(int i);
+    void compactZlist();
+    void exploreZlists();
+    void exploreZlists(int i);  // Temporary warper
+
+    void propagateYlist();
 
     void expandYlist(int i);
     void compactYlist();
     void exploreYlists();
-    void exploreYlists(int i);
-    
+    void exploreYlists(int i);  // Temporary warper
 
     void testXlist();
 
