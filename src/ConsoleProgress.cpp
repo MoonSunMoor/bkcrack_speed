@@ -41,9 +41,11 @@ void ConsoleProgress::printerFunction()
                     const auto flagsBefore     = os.setf(std::ios::fixed, std::ios::floatfield);
                     const auto precisionBefore = os.precision(1);
 
+                    /*
                     os << (100.0 * done / total) << " % (" << done << " / " << total << ")" << std::flush
                        << "\033[1K\r";
-
+                       */
+                    os << (100.0 * done / total) << " % (" << done << " / " << total << ")" << std::endl;
                     os.precision(precisionBefore);
                     os.flags(flagsBefore);
                 });

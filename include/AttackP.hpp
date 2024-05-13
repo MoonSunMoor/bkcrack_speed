@@ -24,7 +24,15 @@ struct KeyPack
 class AttackP : public Attack
 {
 public:
+    void expandZlist(int i);
+    void exploreZlists(int i);
+
+    void expandYlist(int i);
+    void compactYlist();
+    void exploreYlists();
     void exploreYlists(int i);
+    
+
     void testXlist();
 
     AttackP(const Data& data, std::size_t index, std::vector<Keys>& solutions, std::mutex& solutionsMutex,
