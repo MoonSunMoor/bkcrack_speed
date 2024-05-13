@@ -152,7 +152,7 @@ void AttackP::exploreYlists(int i)
 
 void AttackP::exploreYlists()
 {
-    for (int k = 7; k > 3; k++)
+    for (int k = 7; k > 3; k--)
     {
         expandYlist(k);
         compactYlist();
