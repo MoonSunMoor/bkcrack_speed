@@ -24,6 +24,9 @@ struct KeyPack
 class AttackP : public Attack
 {
 public:
+
+    void carryout(std::uint32_t z7_2_32);
+
     void expandZlist(int i);
     void exploreZlists(int i);
 
@@ -38,6 +41,9 @@ public:
     AttackP(const Data& data, std::size_t index, std::vector<Keys>& solutions, std::mutex& solutionsMutex,
             bool exhaustive, Progress& progress);
 protected:
+    KeyPack extractKeyPack();
+
+
     std::vector<KeyPack> keypacks;
 };
 #endif // BKCRACK_ATTACKP_HPP

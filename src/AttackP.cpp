@@ -15,6 +15,22 @@ AttackP::AttackP(const Data& data, std::size_t index, std::vector<Keys>& solutio
 }
 
 
+KeyPack AttackP::extractKeyPack()
+{
+    KeyPack current_keypack;
+    memcpy(current_keypack.x, xlist.data(), sizeof(KeyList));
+    memcpy(current_keypack.y, ylist.data(), sizeof(KeyList));
+    memcpy(current_keypack.z, zlist.data(), sizeof(KeyList));
+    return current_keypack;
+}
+
+void AttackP::carryout(std::uint32_t z7_2_32)
+{
+    zlist[7] = z7_2_32;
+    exploreZlists(7);
+}
+
+/*
 void AttackP::expandZlist(int i) {
     int                  idx = 0;
     std::vector<KeyPack> buffer(keypacks.size() * 5); // TODO
@@ -45,8 +61,8 @@ void AttackP::expandZlist(int i) {
         });
     keypacks = buffer;
 }
-
-void Attack::exploreZlists(int i)
+*/
+void AttackP::exploreZlists(int i)
 {
     if (i != 0) // the Z-list is not complete so generate Z{i-1}[2,32) values
     {
@@ -89,8 +105,9 @@ void Attack::exploreZlists(int i)
 
 void AttackP::expandYlist(int i)
 {
+    constexpr int        local_dim = 4;
     int                  global_idx = 0;
-    std::vector<KeyPack> buffer(keypacks.size() * 5);
+    std::vector<KeyPack> buffer(keypacks.size() * local_dim);
 
     std::for_each(keypacks.begin(), keypacks.end(),
                   [&](auto key)
@@ -118,35 +135,44 @@ void AttackP::expandYlist(int i)
 
                               // Set as vaild
                               key.y[0] = -1;
+                              
 
-                              buffer[global_idx * 5 + local_idx] = key;
-                              global_idx++;
+                              buffer[global_idx * local_dim + local_idx] = key;
+                              /*
+                              try
+                              {
+                                  buffer.at(global_idx * 8 + local_idx) = key;
+                              }
+                              catch (std::out_of_range err)
+                              {
+                                  std::cout << "index error" << std::endl;
+                              }
+                              */
                               local_idx++;
                           }
                       }
+                      global_idx++;
                   });
-    keypacks = buffer;
+    keypacks = std::move(buffer);
 }
 
 void AttackP::compactYlist() {
+    if (keypacks.empty())
+        return;
     keypacks.erase(std::remove_if(
         keypacks.begin(), keypacks.end(),
-        [&](const auto e) { 
+        [](const auto e) { 
             return e.y[0] == 0;
-        }));
+        }),keypacks.end());
 }
 
-// TODO: Parallelize
+
 void AttackP::exploreYlists(int i)
 {
-    KeyPack cur_list;
-    memcpy(cur_list.x, xlist.data(), 8);
-    memcpy(cur_list.y, ylist.data(), 8);
-    memcpy(cur_list.z, zlist.data(), 8);
-    keypacks.push_back(cur_list);
+    keypacks.push_back(extractKeyPack());
 
     // Only for testing. Breaks --continue-attack and more
-    if (keypacks.size() > 1024)
+    if (keypacks.size() > 1023)
         exploreYlists();
 }
 
@@ -157,16 +183,16 @@ void AttackP::exploreYlists()
         expandYlist(k);
         compactYlist();
     }
-    std::cout << keypacks.size() << "\n";
     // the Y-list is complete so add key list for pending if x is vaild
-    if (keypacks.size() > 1024)
-        testXlist();
+    testXlist();
 }
-
 
 // Parallelized with CUDA in mind
 void AttackP::testXlist()
 {
+    if (keypacks.empty())
+        return;
+
     std::for_each(
         keypacks.begin(), keypacks.end(),
         [&](auto& keys)
@@ -177,21 +203,23 @@ void AttackP::testXlist()
                     | lsb(keys.x[i]); // set the LSB
 
             // compute X3
-            auto& x = keys.x[0];
-            x       = keys.x[7];
+            auto x = keys.x[7];
             for (auto i = 6; i >= 3; i--)
                 x = Crc32Tab::crc32inv(x, data.plaintext[index + i]);
+            keys.x[3] = x;
         });
 
     // check that X3 fits with Y1[26,32)
     keypacks.erase(std::remove_if(
         keypacks.begin(), keypacks.end(),
         [&](const auto e)
-        {        
-            const auto& x        = e.x[0];
+        {
             const auto  y1_26_32 = Crc32Tab::getYi_24_32(e.z[1], e.z[0]) & mask<26, 32>;
-            return ((ylist[3] - 1) * MultTab::multInv - lsb(x) - 1) * MultTab::multInv - y1_26_32 > maxdiff<26>;
-        }));
+            return ((e.y[3] - 1) * MultTab::multInv - lsb(e.x[3]) - 1) * MultTab::multInv - y1_26_32 > maxdiff<26>;
+        }), keypacks.end());
+
+    if (keypacks.empty())
+        return;
 
 
     // decipher and filter by comparing with remaining contiguous plaintext forward
@@ -210,16 +238,18 @@ void AttackP::testXlist()
                 keysForward.update(*p);
             }    
             return false;
-        }));
+        }), keypacks.end());
     auto indexForward = data.offset + data.plaintext.size();
 
+    if (keypacks.empty())
+        return;
 
     // and also backward
     keypacks.erase(std::remove_if(
         keypacks.begin(), keypacks.end(),
         [&](const auto e)
         {
-            auto keysBackward = Keys{e.x[0], e.y[3], e.z[3]};
+            auto keysBackward = Keys{e.x[3], e.y[3], e.z[3]};
             for (auto p = std::reverse_iterator{data.plaintext.begin() + index + 3},
                 c = std::reverse_iterator{data.ciphertext.begin() + data.offset + index + 3};
                 p != data.plaintext.rend(); ++p, ++c)
@@ -229,7 +259,7 @@ void AttackP::testXlist()
                     return true;
             }
             return false;
-        }));
+        }), keypacks.end());
     auto indexBackward = data.offset;
 
 
@@ -269,8 +299,9 @@ void AttackP::testXlist()
     std::for_each(keypacks.begin(), keypacks.end(),
         [&](const auto& e)
         {
-            auto keysBackward = Keys{e.x[0], e.y[3], e.z[3]};
+            auto keysBackward = Keys{e.x[3], e.y[3], e.z[3]};
             keysBackward.updateBackward(data.ciphertext, indexBackward + index + 3, 0);
+            solutionKeys.push_back(keysBackward);
         });
 
     keypacks.clear();
