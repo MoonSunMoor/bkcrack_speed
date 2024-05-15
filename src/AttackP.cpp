@@ -8,6 +8,8 @@
 #include <algorithm>
 #include <string>
 
+#include <immintrin.h>
+
 AttackP::AttackP(const Data& data, std::size_t index, std::vector<Keys>& solutions, std::mutex& solutionsMutex,
                bool exhaustive, Progress& progress)
 : Attack(data, index, solutions, solutionsMutex, exhaustive, progress)
@@ -18,9 +20,9 @@ AttackP::AttackP(const Data& data, std::size_t index, std::vector<Keys>& solutio
 KeyPack AttackP::extractKeyPack()
 {
     KeyPack current_keypack;
-    memcpy(current_keypack.x, xlist.data(), sizeof(KeyList));
-    memcpy(current_keypack.y, ylist.data(), sizeof(KeyList));
-    memcpy(current_keypack.z, zlist.data(), sizeof(KeyList));
+    _mm256_storeu_si256((__m256i*)&current_keypack.x, _mm256_loadu_si256((__m256i*)xlist.data()));
+    //_mm256_storeu_si256((__m256i*)&current_keypack.y, _mm256_loadu_si256((__m256i*)ylist.data()));
+    //memcpy(current_keypack.z, zlist.data(), sizeof(KeyList));
     return current_keypack;
 }
 
@@ -55,7 +57,7 @@ void AttackP::expandZlist(int i) {
                 key.z[i] &= mask<2, 32>; // discard 2 least significant bits
                 key.z[i] |= (Crc32Tab::crc32inv(key.z[i], 0) ^ key.z[i - 1]) >> 8;
 
-                buffer[glb_idx * local_dim + local_idx] = key;
+                buffer[global_idx * local_dim + local_idx] = key;
                 local_idx++;
             }
             global_idx++;
@@ -112,6 +114,8 @@ void AttackP::exploreZlists(int i)
     }
     else // the Z-list is complete so iterate over possible Y values
     {
+        keypacks.clear();
+        keypacks.reserve(1 << 17);
         // guess Y7[8,24) and keep prod == (Y7[8,32) - 1) * mult^-1
         for (auto y7_8_24 = std::uint32_t{}, prod = (MultTab::getMultinv(msb(ylist[7])) << 24) - MultTab::multInv;
              y7_8_24 < 1 << 24; y7_8_24 += 1 << 8, prod += MultTab::multInv << 8)
@@ -121,11 +125,14 @@ void AttackP::exploreZlists(int i)
                 if (prod + MultTab::getMultinv(y7_0_8) - (ylist[6] & mask<24, 32>) <= maxdiff<24>)
                 {
                     ylist[7] = y7_0_8 | y7_8_24 | (ylist[7] & mask<24, 32>);
-                    exploreYlists(7);
+                    keypacks.push_back(extractKeyPack());
                 }
+        (*keypacks.end()).x[0] += 1;
+        //exploreYlists();
     }
 }
 
+/*
 void AttackP::exploreZlists(int i)
 {
     for (int k = 7; k > 0; k--)
@@ -138,7 +145,7 @@ void AttackP::exploreZlists(int i)
 
     exploreYlists();
 }
-
+*/
 
 void AttackP::expandYlist(int i)
 {
