@@ -75,17 +75,42 @@ void AttackP::compactZlist() {
         }),keypacks.end());
 }
 
-void AttackP::propagateYlist() {
-    std::for_each(
-        keypacks.begin(), keypacks.end(), 
-        [&](auto &e) 
-        { 
-            for (int i = 1; i < 7; i++)
-            {
-                ylist[i + 1] = Crc32Tab::getYi_24_32(zlist[i + 1], zlist[i]);
-            }
-        }
-    );
+void AttackP::propagateYlist(KeyPack keyset)
+{
+    constexpr int        local_dim  = 4;
+    int                  global_idx = 0;
+    std::vector<KeyPack> buffer(1 << 18);
+
+    auto prod_base = (MultTab::getMultinv(msb(keyset.y[7])) << 24) - MultTab::multInv;
+
+    std::for_each(buffer.begin(), buffer.end(),
+                  [&](auto& e)
+                  {
+                      const auto outter_idx = global_idx >> 2;
+                      const auto inner_idx  = global_idx & 0x3;
+
+                      // guess Y7[8,24) and keep prod == (Y7[8,32) - 1) * mult^-1
+                      const auto prod    = prod_base + (MultTab::multInv << 8) * outter_idx;
+
+                      const auto v_y708 = MultTab::getMsbProdFiber3(msb(keyset.y[6]) - msb(prod));
+
+                      if (inner_idx < v_y708.size())
+                      {
+                          // get possible Y7[0,8) values
+                          const auto y7_0_8 = v_y708[inner_idx];
+                          const auto y7_8_24 = (1 << 8) * outter_idx;
+
+                          // filter Y7[0,8) using Y6[24,32)
+                          if (prod + MultTab::getMultinv(y7_0_8) - (keyset.y[6] & mask<24, 32>) <= maxdiff<24>)
+                          {
+                              keyset.y[7] = y7_0_8 | y7_8_24 | (keyset.y[7] & mask<24, 32>);
+                              keyset.z[0] |= 1; // Mark as vaild
+                              e           = keyset;
+                          }
+                      }
+                      global_idx++;
+                  });
+    keypacks.swap(buffer);
 }
 
 void AttackP::exploreZlists(int i)
@@ -114,21 +139,9 @@ void AttackP::exploreZlists(int i)
     }
     else // the Z-list is complete so iterate over possible Y values
     {
-        keypacks.clear();
-        keypacks.reserve(1 << 17);
-        // guess Y7[8,24) and keep prod == (Y7[8,32) - 1) * mult^-1
-        for (auto y7_8_24 = std::uint32_t{}, prod = (MultTab::getMultinv(msb(ylist[7])) << 24) - MultTab::multInv;
-             y7_8_24 < 1 << 24; y7_8_24 += 1 << 8, prod += MultTab::multInv << 8)
-            // get possible Y7[0,8) values
-            for (const auto y7_0_8 : MultTab::getMsbProdFiber3(msb(ylist[6]) - msb(prod)))
-                // filter Y7[0,8) using Y6[24,32)
-                if (prod + MultTab::getMultinv(y7_0_8) - (ylist[6] & mask<24, 32>) <= maxdiff<24>)
-                {
-                    ylist[7] = y7_0_8 | y7_8_24 | (ylist[7] & mask<24, 32>);
-                    keypacks.push_back(extractKeyPack());
-                }
-        (*keypacks.end()).x[0] += 1;
-        //exploreYlists();
+        propagateYlist(extractKeyPack());
+        compactZlist();
+        exploreYlists();
     }
 }
 
@@ -208,16 +221,6 @@ void AttackP::compactYlist() {
         [](const auto e) { 
             return e.y[0] == 0;
         }),keypacks.end());
-}
-
-
-void AttackP::exploreYlists(int i)
-{
-    keypacks.push_back(extractKeyPack());
-
-    // Only for testing. Breaks --continue-attack and more
-    if (keypacks.size() > 1023)
-        exploreYlists();
 }
 
 void AttackP::exploreYlists()

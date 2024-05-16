@@ -32,12 +32,11 @@ public:
     void exploreZlists();
     void exploreZlists(int i);  // Temporary warper
 
-    void propagateYlist();
+    void propagateYlist(KeyPack keyset);
 
     void expandYlist(int i);
     void compactYlist();
     void exploreYlists();
-    void exploreYlists(int i);  // Temporary warper
 
     void testXlist();
 
