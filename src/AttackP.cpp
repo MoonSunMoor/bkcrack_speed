@@ -20,9 +20,9 @@ AttackP::AttackP(const Data& data, std::size_t index, std::vector<Keys>& solutio
 KeyPack AttackP::extractKeyPack()
 {
     KeyPack current_keypack;
-    _mm256_storeu_si256((__m256i*)&current_keypack.x, _mm256_loadu_si256((__m256i*)xlist.data()));
-    //_mm256_storeu_si256((__m256i*)&current_keypack.y, _mm256_loadu_si256((__m256i*)ylist.data()));
-    //memcpy(current_keypack.z, zlist.data(), sizeof(KeyList));
+    memcpy(current_keypack.x, xlist.data(), sizeof(KeyList));
+    memcpy(current_keypack.y, ylist.data(), sizeof(KeyList));
+    memcpy(current_keypack.z, zlist.data(), sizeof(KeyList));
     return current_keypack;
 }
 
